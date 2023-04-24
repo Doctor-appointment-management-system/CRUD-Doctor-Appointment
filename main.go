@@ -67,6 +67,15 @@ func sql_Doctor_tabel_creation() {
 	fmt.Println("Docter Table Created")
 }
 
+func sql_Patient_tabel_creation() {
+	db, err := db_connection()
+	Err(err)
+	// sql table creation
+
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS PATIENTS(ID INT,Name VARCHAR(20),Gender VARCHAR(8),Address VARCHAR(255),City VARCHAR(20),State VARCHAR(20),Mobile_no VARCHAR(15))")
+	Err(err)
+}
+
 func Add_docter() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		db, err := db_connection()
@@ -276,14 +285,127 @@ func Delete_docter() gin.HandlerFunc {
 	}
 }
 
+type Patients struct {
+	ID                      int
+	Name                    string
+	Age                     int
+	Gender                  string
+	Address                 string
+	City                    string
+	Phone                   string
+	Disease                 string
+	Selected_specialisation string
+	Patient_history         string
+}
+
+func Add_patient() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		db, err := db_connection()
+		Err(err)
+		defer db.Close()
+
+		var patient Patients
+
+		err = c.BindJSON(&patient)
+
+		Err(err)
+
+		c.IndentedJSON(http.StatusCreated, patient)
+
+		sql_query := fmt.Sprintf(`INSERT INTO patient(Name,Age,Gender,Address,City,Phone,Disease,Selected_Specialisation,Patient_history) VALUES('%s',%d,'%s','%s','%s','%s','%s','%s','%s')`, patient.Name, patient.Age, patient.Gender, patient.Address, patient.City, patient.Phone, patient.Disease, patient.Selected_specialisation, patient.Patient_history)
+
+		insert, err := db.Query(sql_query)
+		Err(err)
+		defer insert.Close()
+		fmt.Println("Yeah! Patient is Added to the database")
+	}
+}
+
+func Get_patient() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		db, err := db_connection()
+		Err(err)
+
+		query, err := db.Query("SELECT * FROM Patients")
+		Err(err)
+		defer query.Close()
+
+		var output interface{}
+		for query.Next() {
+			var ID int
+			var Name string
+			var Age int
+			var Gender string
+			var Address string
+			var City string
+			var Phone string
+			var Disease string
+			var Selected_specialisation string
+			var Patient_history string
+
+			err = query.Scan(&ID, &Name, &Age, &Gender, &Address, &City, &Phone, &Disease, &Selected_specialisation, &Patient_history)
+			if err != nil {
+				panic(err.Error())
+			}
+			output = fmt.Sprintf("%d  %s  %d  %s  %s  %s  %s  %s  %s  %s ", ID, Name, Age, Gender, Address, City, Phone, Disease, Selected_specialisation, Patient_history)
+			c.IndentedJSON(http.StatusOK, output)
+		}
+	}
+}
+
+func Update_patient() gin.HandlerFunc {
+	return func(c *gin.Context) {
+
+		db, err := db_connection()
+		Err(err)
+		fmt.Println("database Connected Successfully")
+		defer db.Close()
+		var patient Patients
+		err = c.BindJSON(&patient)
+		Err(err)
+		c.IndentedJSON(http.StatusCreated, patient)
+		update_query := fmt.Sprintf("UPDATE Patients SET Name='%s',Age=%d,Gender='%s',Address='%s',City='%s',Phone='%s', Diseases='%s',Selected_specialisation='%s',Patient_history='%s', WHERE Id=%d", patient.Name, patient.Age, patient.Gender, patient.Address, patient.City, patient.Phone, patient.Disease, patient.Selected_specialisation, patient.Patient_history, patient.ID)
+		fmt.Println(update_query)
+		_, err = db.Exec(update_query)
+		if err != nil {
+			panic(err.Error())
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "User updated successfully"})
+	}
+}
+
+func Delete_patient() gin.HandlerFunc {
+	return func(c *gin.Context) {
+
+		db, err := db_connection()
+		Err(err)
+
+		var patient Patients
+		err = c.BindJSON(&patient)
+
+		query := fmt.Sprintf(" DELETE FROM PATIENTS WHERE Mobile_no='%s'", patient.Phone)
+		delete, err := db.Query(query)
+		Err(err)
+		defer delete.Close()
+		c.JSON(http.StatusOK, gin.H{"message": "Yeh! Patient is removed succesfully from database"})
+	}
+}
+
 func main() {
 
 	dbCreation()
 	sql_Doctor_tabel_creation()
+	sql_Patient_tabel_creation()
 	router := gin.Default()
 	router.POST("/", Add_docter())
 	router.GET("/", Get_my_profile())
 	router.PUT("/", Update_docter())
 	router.DELETE("/", Delete_docter())
+
+	router.POST("patient/add_patients", Add_patient())
+	router.GET("patient/get_patients", Get_patient())
+	router.PUT("patient/update_patients", Update_patient())
+	router.DELETE("patient/delete_patients", Delete_patient())
+
 	router.Run("localhost:8080")
 }
